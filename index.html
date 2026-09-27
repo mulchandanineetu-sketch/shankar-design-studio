@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shankar Design Studio</title>
+<style>
+  :root {
+    --bg: #f4f5f8;
+    --panel: #ffffff;
+    --ink: #1b1c22;
+    --muted: #6b6d7a;
+    --line: #e2e4ec;
+    --accent: #6d28d9;
+    --shirt: #e9e9ee;
+    --shirt-line: #c9c9d4;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    padding: 24px 16px 40px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    color: var(--ink);
+    background: var(--bg);
+  }
+
+  header {
+    width: 100%;
+    max-width: 900px;
+    margin-bottom: 18px;
+  }
+
+  h1 {
+    margin: 0;
+    font-size: 22px;
+    letter-spacing: -0.01em;
+  }
+
+  header p {
+    margin: 4px 0 0;
+    font-size: 14px;
+    color: var(--muted);
+  }
+
+  .studio {
+    width: 100%;
+    max-width: 900px;
+    display: grid;
+    grid-template-columns: 1.1fr 0.9fr;
+    gap: 20px;
+    align-items: start;
+  }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 20px;
+  }
+
+  .shirt {
+    position: relative;
+    container-type: inline-size;
+    width: 100%;
+    max-width: 400px;
+    margin: 0 auto;
+  }
+
+  .shirt svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    filter: drop-shadow(0 8px 16px rgba(27, 28, 34, 0.12));
+  }
+
+  .shirt .body {
+    fill: var(--shirt);
+    stroke: var(--shirt-line);
+    stroke-width: 2;
+    stroke-linejoin: round;
+  }
+
+  .shirt .collar {
+    fill: none;
+    stroke: var(--shirt-line);
+    stroke-width: 5;
+    stroke-linecap: round;
+  }
+
+  .print-area {
+    position: absolute;
+    left: 30%;
+    top: 28%;
+    width: 40%;
+    height: 36%;
+    padding: 2cqw;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    overflow: hidden;
+    border: 1px dashed transparent;
+    border-radius: 8px;
+    font-size: 7cqw;
+    font-weight: 700;
+    line-height: 1.15;
+    overflow-wrap: anywhere;
+    transition: color 0.15s ease;
+  }
+
+  .print-area.is-empty {
+    border-color: #c3c5d4;
+  }
+
+  .template-tag {
+    margin: 14px 0 0;
+    text-align: center;
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  .controls {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .field-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  input[type="text"],
+  select {
+    width: 100%;
+    padding: 10px 12px;
+    font: inherit;
+    font-size: 15px;
+    color: var(--ink);
+    background: #fbfbfd;
+    border: 1px solid var(--line);
+    border-radius: 9px;
+  }
+
+  input[type="text"]:focus,
+  select:focus,
+  input[type="color"]:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+
+  input[type="color"] {
+    width: 100%;
+    height: 42px;
+    padding: 4px;
+    background: #fbfbfd;
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    cursor: pointer;
+  }
+
+  .price-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    border-top: 1px solid var(--line);
+    padding-top: 16px;
+  }
+
+  .price-row .field-label { margin: 0; }
+
+  #priceOutput {
+    font-size: 26px;
+    font-weight: 700;
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+
+  @media (max-width: 720px) {
+    .studio { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+  <header>
+    <h1>Shankar Design Studio</h1>
+    <p>Design a Classic T-shirt with a chest print.</p>
+  </header>
+
+  <main class="studio">
+    <section class="panel" aria-label="Preview">
+      <div class="shirt">
+        <svg viewBox="0 0 200 215" role="img" aria-label="Classic T-shirt, front view">
+          <path class="body" d="M60 24 C72 46 128 46 140 24 L168 32 L196 86 L158 106 L150 88 L150 204 L50 204 L50 88 L42 106 L4 86 L32 32 Z"/>
+          <path class="collar" d="M60 24 C72 46 128 46 140 24"/>
+        </svg>
+        <div class="print-area" id="printArea">
+          <span id="printText"></span>
+        </div>
+      </div>
+      <p class="template-tag">Classic T-Shirt &middot; Chest template</p>
+    </section>
+
+    <section class="panel controls" aria-label="Design controls">
+      <label class="field">
+        <span class="field-label">Text</span>
+        <input id="textInput" type="text" value="SHANKAR" maxlength="24" placeholder="Add text" autocomplete="off">
+      </label>
+
+      <label class="field">
+        <span class="field-label">Colour</span>
+        <input id="colourInput" type="color" value="#111111">
+      </label>
+
+      <label class="field">
+        <span class="field-label">Size</span>
+        <select id="sizeInput">
+          <option value="S">S</option>
+          <option value="M" selected>M</option>
+          <option value="L">L</option>
+          <option value="XL">XL</option>
+        </select>
+      </label>
+
+      <div class="price-row">
+        <span class="field-label">Price</span>
+        <output id="priceOutput" for="textInput colourInput sizeInput" aria-live="polite">&nbsp;</output>
+      </div>
+    </section>
+  </main>
+
+<script>
+  const PRODUCT = {
+    name: "Classic T-Shirt",
+    template: "Chest",
+    basePrice: 500,
+    sizeSurcharge: { S: 0, M: 0, L: 50, XL: 100 }
+  };
+
+  const state = { text: "SHANKAR", colour: "#111111", size: "M" };
+
+  const textInput = document.getElementById("textInput");
+  const colourInput = document.getElementById("colourInput");
+  const sizeInput = document.getElementById("sizeInput");
+  const priceOutput = document.getElementById("priceOutput");
+  const printArea = document.getElementById("printArea");
+  const printText = document.getElementById("printText");
+
+  function rupees(amount) {
+    return "\u20B9" + amount.toFixed(2);
+  }
+
+  function render() {
+    const text = state.text.trim();
+
+    printText.textContent = text;
+    printText.style.color = state.colour;
+    printArea.classList.toggle("is-empty", text === "");
+
+    priceOutput.textContent = rupees(PRODUCT.basePrice + PRODUCT.sizeSurcharge[state.size]);
+  }
+
+  function update(key, value) {
+    state[key] = value;
+    render();
+  }
+
+  textInput.addEventListener("input", (event) => update("text", event.target.value));
+  colourInput.addEventListener("input", (event) => update("colour", event.target.value));
+  sizeInput.addEventListener("change", (event) => update("size", event.target.value));
+
+  render();
+</script>
+</body>
+</html>

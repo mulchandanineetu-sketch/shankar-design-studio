@@ -191,6 +191,44 @@
     font-variant-numeric: tabular-nums;
   }
 
+  .save-button {
+    width: 100%;
+    padding: 12px 16px;
+    font: inherit;
+    font-size: 15px;
+    font-weight: 600;
+    color: #ffffff;
+    background: var(--accent);
+    border: 1px solid var(--accent);
+    border-radius: 9px;
+    cursor: pointer;
+  }
+
+  .save-button:hover:not(:disabled) { background: #5b21b6; }
+
+  .save-button:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  .save-button:disabled {
+    opacity: 0.6;
+    cursor: default;
+  }
+
+  .save-status {
+    margin: 0;
+    min-height: 18px;
+    font-size: 13px;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+    color: var(--muted);
+  }
+
+  .save-status.is-ok { color: #157347; }
+
+  .save-status.is-error { color: #b42318; }
+
   @media (max-width: 720px) {
     .studio { grid-template-columns: 1fr; }
   }
@@ -241,10 +279,17 @@
         <span class="field-label">Price</span>
         <output id="priceOutput" for="textInput colourInput sizeInput" aria-live="polite">&nbsp;</output>
       </div>
+
+      <button id="saveButton" class="save-button" type="button">Save Order</button>
+      <p id="saveStatus" class="save-status" role="status" aria-live="polite"></p>
     </section>
   </main>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js" integrity="sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok" crossorigin="anonymous"></script>
 <script>
+  const SUPABASE_URL = "https://esbnkkarwlfzkyastmcs.supabase.co";
+  const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_ubFe5DgykTDUn6ASnvbb1g_teZGY4Jx";
+
   const PRODUCT = {
     name: "Classic T-Shirt",
     template: "Chest",
@@ -260,9 +305,60 @@
   const priceOutput = document.getElementById("priceOutput");
   const printArea = document.getElementById("printArea");
   const printText = document.getElementById("printText");
+  const saveButton = document.getElementById("saveButton");
+  const saveStatus = document.getElementById("saveStatus");
+
+  let supabaseClient = null;
 
   function rupees(amount) {
     return "\u20B9" + amount.toFixed(2);
+  }
+
+  function totalPrice() {
+    return PRODUCT.basePrice + PRODUCT.sizeSurcharge[state.size];
+  }
+
+  function getClient() {
+    if (!window.supabase) {
+      throw new Error("supabase-js did not load from the CDN. Check your internet connection and reload.");
+    }
+    if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
+      throw new Error("Supabase Project URL and publishable key are not set at the top of the script in index.html.");
+    }
+    if (!supabaseClient) {
+      supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+    }
+    return supabaseClient;
+  }
+
+  function setStatus(message, kind) {
+    saveStatus.textContent = message;
+    saveStatus.classList.toggle("is-ok", kind === "ok");
+    saveStatus.classList.toggle("is-error", kind === "error");
+  }
+
+  async function saveOrder() {
+    saveButton.disabled = true;
+    setStatus("Saving\u2026", null);
+
+    try {
+      const { error } = await getClient().from("orders").insert({
+        text_on_shirt: state.text.trim(),
+        colour: state.colour,
+        size: state.size,
+        price: totalPrice()
+      });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      setStatus("Order saved", "ok");
+    } catch (error) {
+      setStatus(error.message || String(error), "error");
+    } finally {
+      saveButton.disabled = false;
+    }
   }
 
   function render() {
@@ -272,7 +368,7 @@
     printText.style.color = state.colour;
     printArea.classList.toggle("is-empty", text === "");
 
-    priceOutput.textContent = rupees(PRODUCT.basePrice + PRODUCT.sizeSurcharge[state.size]);
+    priceOutput.textContent = rupees(totalPrice());
   }
 
   function update(key, value) {
@@ -283,6 +379,7 @@
   textInput.addEventListener("input", (event) => update("text", event.target.value));
   colourInput.addEventListener("input", (event) => update("colour", event.target.value));
   sizeInput.addEventListener("change", (event) => update("size", event.target.value));
+  saveButton.addEventListener("click", saveOrder);
 
   render();
 </script>

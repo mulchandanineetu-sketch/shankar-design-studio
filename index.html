@@ -229,6 +229,47 @@
 
   .save-status.is-error { color: #b42318; }
 
+  .print-area img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+
+  input[type="file"] {
+    width: 100%;
+    font: inherit;
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  input[type="file"]::file-selector-button {
+    margin-right: 10px;
+    padding: 8px 12px;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink);
+    background: #fbfbfd;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    cursor: pointer;
+  }
+
+  .clear-button {
+    align-self: flex-start;
+    padding: 8px 12px;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted);
+    background: #fbfbfd;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    cursor: pointer;
+  }
+
+  .clear-button:hover { color: var(--ink); }
+
   @media (max-width: 720px) {
     .studio { grid-template-columns: 1fr; }
   }
@@ -249,6 +290,7 @@
         </svg>
         <div class="print-area" id="printArea">
           <span id="printText"></span>
+          <img id="printLogo" alt="" hidden>
         </div>
       </div>
       <p class="template-tag">Classic T-Shirt &middot; Chest template</p>
@@ -259,6 +301,13 @@
         <span class="field-label">Text</span>
         <input id="textInput" type="text" value="SHANKAR" maxlength="24" placeholder="Add text" autocomplete="off">
       </label>
+
+      <label class="field">
+        <span class="field-label">Logo (PNG or JPG, max 2MB)</span>
+        <input id="logoInput" type="file" accept="image/png,image/jpeg">
+      </label>
+      <button id="clearLogoButton" class="clear-button" type="button" hidden>Remove logo</button>
+      <p id="logoStatus" class="save-status" role="status" aria-live="polite"></p>
 
       <label class="field">
         <span class="field-label">Colour</span>
@@ -297,7 +346,11 @@
     sizeSurcharge: { S: 0, M: 0, L: 50, XL: 100 }
   };
 
-  const state = { text: "SHANKAR", colour: "#111111", size: "M" };
+  const LOGO_BUCKET = "Design";
+  const LOGO_MAX_BYTES = 2 * 1024 * 1024;
+  const LOGO_TYPES = { "image/png": "png", "image/jpeg": "jpg" };
+
+  const state = { text: "SHANKAR", colour: "#111111", size: "M", logoFile: null };
 
   const textInput = document.getElementById("textInput");
   const colourInput = document.getElementById("colourInput");
@@ -307,8 +360,13 @@
   const printText = document.getElementById("printText");
   const saveButton = document.getElementById("saveButton");
   const saveStatus = document.getElementById("saveStatus");
+  const logoInput = document.getElementById("logoInput");
+  const logoStatus = document.getElementById("logoStatus");
+  const clearLogoButton = document.getElementById("clearLogoButton");
+  const printLogo = document.getElementById("printLogo");
 
   let supabaseClient = null;
+  let logoPreviewUrl = null;
 
   function rupees(amount) {
     return "\u20B9" + amount.toFixed(2);
@@ -337,16 +395,86 @@
     saveStatus.classList.toggle("is-error", kind === "error");
   }
 
+  function setLogoStatus(message, kind) {
+    logoStatus.textContent = message;
+    logoStatus.classList.toggle("is-error", kind === "error");
+  }
+
+  function newObjectName() {
+    if (window.crypto && crypto.randomUUID) {
+      return crypto.randomUUID();
+    }
+    return Date.now() + "-" + Math.random().toString(36).slice(2, 10);
+  }
+
+  function clearLogo() {
+    if (logoPreviewUrl) {
+      URL.revokeObjectURL(logoPreviewUrl);
+      logoPreviewUrl = null;
+    }
+    state.logoFile = null;
+    logoInput.value = "";
+    setLogoStatus("", null);
+    render();
+  }
+
+  function chooseLogo(file) {
+    const extension = LOGO_TYPES[file.type];
+
+    if (!extension) {
+      clearLogo();
+      setLogoStatus("Logo must be a PNG or JPG image.", "error");
+      return;
+    }
+
+    if (file.size > LOGO_MAX_BYTES) {
+      clearLogo();
+      setLogoStatus("Logo must be 2MB or smaller.", "error");
+      return;
+    }
+
+    if (logoPreviewUrl) {
+      URL.revokeObjectURL(logoPreviewUrl);
+    }
+
+    state.logoFile = file;
+    logoPreviewUrl = URL.createObjectURL(file);
+    setLogoStatus(file.name, null);
+    render();
+  }
+
+  async function uploadLogo(client) {
+    const file = state.logoFile;
+    const path = "logos/" + newObjectName() + "." + LOGO_TYPES[file.type];
+
+    const { error } = await client.storage.from(LOGO_BUCKET).upload(path, file, {
+      contentType: file.type,
+      upsert: false
+    });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return client.storage.from(LOGO_BUCKET).getPublicUrl(path).data.publicUrl;
+  }
+
   async function saveOrder() {
     saveButton.disabled = true;
-    setStatus("Saving\u2026", null);
+    setStatus(state.logoFile ? "Uploading logo\u2026" : "Saving\u2026", null);
 
     try {
-      const { error } = await getClient().from("orders").insert({
-        text_on_shirt: state.text.trim(),
+      const client = getClient();
+      const logoUrl = state.logoFile ? await uploadLogo(client) : null;
+
+      setStatus("Saving\u2026", null);
+
+      const { error } = await client.from("orders").insert({
+        text_on_shirt: logoUrl ? "" : state.text.trim(),
         colour: state.colour,
         size: state.size,
-        price: totalPrice()
+        price: totalPrice(),
+        logo_url: logoUrl
       });
 
       if (error) {
@@ -363,10 +491,22 @@
 
   function render() {
     const text = state.text.trim();
+    const hasLogo = Boolean(state.logoFile);
 
-    printText.textContent = text;
-    printText.style.color = state.colour;
-    printArea.classList.toggle("is-empty", text === "");
+    printText.hidden = hasLogo;
+    printLogo.hidden = !hasLogo;
+    clearLogoButton.hidden = !hasLogo;
+    printArea.classList.toggle("is-empty", !hasLogo && text === "");
+
+    if (hasLogo) {
+      printLogo.src = logoPreviewUrl;
+      printLogo.alt = state.logoFile.name;
+    } else {
+      printLogo.removeAttribute("src");
+      printLogo.alt = "";
+      printText.textContent = text;
+      printText.style.color = state.colour;
+    }
 
     priceOutput.textContent = rupees(totalPrice());
   }
@@ -380,6 +520,15 @@
   colourInput.addEventListener("input", (event) => update("colour", event.target.value));
   sizeInput.addEventListener("change", (event) => update("size", event.target.value));
   saveButton.addEventListener("click", saveOrder);
+
+  logoInput.addEventListener("change", (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      chooseLogo(file);
+    }
+  });
+
+  clearLogoButton.addEventListener("click", clearLogo);
 
   render();
 </script>
